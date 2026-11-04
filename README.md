@@ -65,7 +65,7 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 %LOCALAPPDATA%\dsh-gitbash-tool\git\PortableGit-2.56.0.4
 ```
 
-下载地址固定为 Git for Windows 官方 release，SHA-256 校验通过后才解压；不需要管理员权限。首次调用会多等一段时间（约 60 MB 下载）。如果用户显式配置了 `bashPath` 或 `DSH_GIT_BASH_PATH`，插件不会用自动安装覆盖它，而是直接报错。
+下载地址固定为 Git for Windows 官方 release，SHA-256 校验通过后才解压；不需要管理员权限。首次调用会多等一段时间（约 60 MB 下载）。自动安装由 Host 插件执行，属于“安装依赖”，不是会话里的 `gitbash` 命令在沙箱内执行；因此只接受固定 HTTPS 源和固定 SHA-256，解压只写用户本地安装目录。如果用户显式配置了 `bashPath` 或 `DSH_GIT_BASH_PATH`，插件不会用自动安装覆盖它，而是直接报错。
 
 自动探测顺序：
 
