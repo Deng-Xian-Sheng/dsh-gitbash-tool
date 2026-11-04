@@ -8,6 +8,8 @@
 #
 # Optional row config (raw, not schema-validated):
 #   bashPath: 'D:\Tools\Git\bin\bash.exe'
+#   autoInstallGit: true
+#   gitInstallDir: 'C:\Users\me\AppData\Local\dsh-gitbash-tool\git'
 #   enableRunInBackground: true
 #   promoteOnTimeout: true
 #   demotePwsh: true

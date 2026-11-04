@@ -1,7 +1,7 @@
 {
   "name": "dsh-gitbash-tool",
   "version": "0.1.0",
-  "description": "Model-facing Git Bash tool for DeepSeek Harness on Windows, with Git Bash guidance and PowerShell prompt neutralization.",
+  "description": "Model-facing Git Bash tool for DeepSeek Harness on Windows: auto-provisions Git for Windows when missing, runs under the default ACL sandbox through a native MSYS guard, and demotes PowerShell-first prompt guidance.",
   "type": "module",
   "private": false,
   "main": "lib/index.js",
@@ -14,6 +14,7 @@
   "icon": "./icon.svg",
   "files": [
     "lib",
+    "native",
     "locale",
     "icon.svg",
     "cordis.patch.yml",

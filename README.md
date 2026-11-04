@@ -2,10 +2,11 @@
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）在 Windows 上增加一个模型可调用的 **Git Bash** 工具，并纠正 Windows 预设里“PowerShell 是默认 shell”的提示词偏见。
 
-这个插件只做两件事：
+这个插件只做三件事：
 
 1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` 工具看齐（前台 job、超时升格、后台任务、`promoted` 输出、输出截断/落盘、沙箱策略、终端卡片）；
-2. 通过公开的 `system-prompt/assemble` 瀑布，把官方 `pwsh` 工具的描述和 `tool:pwsh` 提示词段改写成“仅在 Git Bash 做不了的 Windows 原生操作时使用”，避免模型在 Windows 上默认写 PowerShell 语法。`pwsh` 工具本身仍然保留可用。
+2. 没有 Git for Windows 时，自动下载并安装一个私有 PortableGit（SHA-256 校验，普通用户权限即可）；
+3. 通过公开的 `system-prompt/assemble` 瀑布，把官方 `pwsh` 工具的描述和 `tool:pwsh` 提示词段改写成“仅在 Git Bash 做不了的 Windows 原生操作时使用”，避免模型在 Windows 上默认写 PowerShell 语法。`pwsh` 工具本身仍然保留可用。
 
 它不替换 DSH 的 `ctx.shell` 执行器，不修改安装目录，不依赖 MCP，也不接管侧栏终端。
 
@@ -56,18 +57,25 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 
 - Windows x64
 - DSH `0.2.1-rc.1` 及以上（`< 0.3.0`）
-- [Git for Windows](https://git-scm.com/download/win)（提供 `bash.exe`）
+- Git for Windows 可选：**没有安装时插件会自动装一个私有 PortableGit**
 
-插件在**每次调用时**懒解析 Git Bash，所以先装插件、后装 Git 也不会让 DSH 启动失败；调用时会返回带安装指引的错误。
+插件在**每次调用时**懒解析 Git Bash。找不到 Git 时，默认会自动下载并解压一个固定版本的 Git for Windows PortableGit 到：
+
+```text
+%LOCALAPPDATA%\dsh-gitbash-tool\git\PortableGit-2.56.0.4
+```
+
+下载地址固定为 Git for Windows 官方 release，SHA-256 校验通过后才解压；不需要管理员权限。首次调用会多等一段时间（约 60 MB 下载）。如果用户显式配置了 `bashPath` 或 `DSH_GIT_BASH_PATH`，插件不会用自动安装覆盖它，而是直接报错。
 
 自动探测顺序：
 
 1. 插件行 `config.bashPath`
 2. 环境变量 `DSH_GIT_BASH_PATH`
-3. 标准安装位置（`Program Files\Git`、`Program Files (x86)\Git`、`%LOCALAPPDATA%\Programs\Git`、Scoop）
-4. `PATH` 上的 `bash.exe`（跳过 `System32` / WindowsApps 的 WSL 启动器）
-5. `PATH` 上的 `git.exe --exec-path` 反推 Git 根目录
-6. 注册表 `HKLM/HKCU\SOFTWARE\GitForWindows` 的 `InstallPath`
+3. 自动安装目录的 `current.txt` 标记
+4. 标准安装位置（`Program Files\Git`、`Program Files (x86)\Git`、`%LOCALAPPDATA%\Programs\Git`、Scoop）
+5. `PATH` 上的 `bash.exe`（跳过 `System32` / WindowsApps 的 WSL 启动器）
+6. `PATH` 上的 `git.exe --exec-path` 反推 Git 根目录
+7. 注册表 `HKLM/HKCU\SOFTWARE\GitForWindows` 的 `InstallPath`
 
 候选路径会实际运行 `bash.exe -c "uname -s"`，只接受 `MINGW*` / `MSYS*`。WSL、WindowsApps 别名、Cygwin/MSYS2 的非 Git Bash 都会被拒绝。
 
@@ -98,6 +106,8 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
   name: dsh-gitbash-tool
   config:
     bashPath: 'D:\Tools\Git\bin\bash.exe'
+    autoInstallGit: true
+    gitInstallDir: 'C:\Users\me\AppData\Local\dsh-gitbash-tool\git'
     enableRunInBackground: true
     promoteOnTimeout: true
     demotePwsh: true
@@ -105,14 +115,19 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `bashPath` | 空 | 显式指定 `bash.exe`；非空时优先且不会回退到自动探测 |
+| `bashPath` | 空 | 显式指定 `bash.exe`；非空时优先且不会回退到自动探测/自动安装 |
+| `autoInstallGit` | `true` | 找不到 Git 时自动下载并安装私有 PortableGit |
+| `gitInstallDir` | `%LOCALAPPDATA%\dsh-gitbash-tool\git` | 自动安装目录；必须是绝对路径 |
+| `gitDownloadUrl` | 固定 Git for Windows release | 镜像/离线源可覆盖；必须 HTTPS |
+| `gitSha256` | 固定 SHA-256 | 覆盖下载源时必须同时覆盖校验值 |
 | `enableRunInBackground` | `true` | 是否暴露/允许 `run_in_background` |
 | `promoteOnTimeout` | `true` | 前台命令超时后升格为后台 job，而不是直接杀进程；与官方 bash 工具一致 |
 | `demotePwsh` | `true` | 是否改写 `pwsh` 工具描述和 `tool:pwsh` 提示词段 |
 
 环境变量：
 
-- `DSH_GIT_BASH_PATH`：无 GUI 配置时指定 Git Bash 路径；
+- `DSH_GIT_BASH_PATH`：无 GUI 配置时指定 Git Bash 路径；显式路径失败不会触发自动安装；
+- `DSH_GITBASH_AUTO_INSTALL=0`：关闭自动安装 Git；
 - `DSH_GITBASH_DEMOTE_PWSH=0`：强制保留官方 PowerShell 提示词（等价于 `demotePwsh: false`）。
 
 ## 工具行为
@@ -136,15 +151,28 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 
 ### 沙箱说明（重要）
 
-DSH 在 Windows 上使用 ACL restricted-token runner 做文件沙箱。Git for Windows 的 MSYS/Cygwin 运行时在受限 token 下经常无法启动（历史错误包括 Win32 error 5 / `0xC0000142`）。
+DSH 在 Windows 上的默认权限不是“无沙箱”：
 
-本插件的策略是**不静默绕过**：
+```yaml
+# dsh-base
+- id: sandbox-policy
+  name: '@deepseek-ai/dsh-sandbox-policy'
+  config:
+    mode: !!js process.env.DSH_PERMISSION_MODE ?? 'workspace-write'
+```
 
-- `danger-full-access`：直接运行 Git Bash，正常工作；
-- `read-only` / `workspace-write`：仍然交给 `ctx.sandbox.confine` 包装；如果 ACL runner 无法启动 Git Bash，工具返回 `SANDBOX_UNAVAILABLE` 并明确说明“不要用其他方式绕过”；
-- 需要受限模式时，请用 `pwsh` 执行该命令，或把当前会话切到 `danger-full-access` 后再用 `gitbash`。
+也就是说，新会话默认是 **`workspace-write` + Windows ACL 沙箱 + approval=ask**。普通 Git for Windows 的 MSYS/Cygwin 运行时在受限 token 下经常无法启动（历史错误包括 Win32 error 5 / `0xC0000142`）；如果插件不做处理，模型就会退回 `pwsh`，工具等于没起作用。
 
-这不是本插件能单独解决的平台限制。`dsh-gitbash-shell` / `dsh-plugin-git-bash` 通过 native guard、或直接声明“受限模式不可用”来处理同一问题。
+本插件内置了 **native MSYS token guard**：
+
+- `danger-full-access`：直接运行 `bash.exe`；
+- `read-only` / `workspace-write`：由 ACL runner 启动 `msys-token-guard.exe`，guard 准备 restricted child token 后再启动 `bash.exe`；
+- guard 失败时返回 `SANDBOX_UNAVAILABLE`，**不静默改走 pwsh，也不静默取消沙箱**；
+- guard 的源码和预编译二进制在 `native/`，来源是 MIT 的 `dsh-plugin-git-bash`；上游许可证见 `native/UPSTREAM_LICENSE`。
+
+如果 guard 在你的机器上仍然失败，请把 `SANDBOX_UNAVAILABLE` 的完整错误发回来；不要把它当成普通命令失败重试。
+
+已验证：用临时 headless profile 设置 `DSH_PERMISSION_MODE=workspace-write` 启动，guard 路径下 Git Bash 正常启动，工作区外写入被拒绝（`Permission denied`，`write_exit=1`），没有回退到 `pwsh`。当前 `desktop` 会话是 `danger-full-access`，所以当前会话的直接调用不会走 guard；默认 `workspace-write` 的验证来自上述独立 profile。
 
 ## 提示词纠正
 
@@ -171,11 +199,16 @@ node --test
 测试覆盖：
 
 - Git Bash 解析、显式路径优先级、失败关闭、WSL 拒绝、标准候选路径；
+- PortableGit 解压、SHA-256 校验、`bash.exe` 实测；
+- 自动下载链路已实测：57.3 MiB、SHA-256 校验通过、解压后 `uname -s` 为 `MINGW64_NT-*`；
+- native guard 文件存在性与 DACL 归一化；`workspace-write` 下 guard + ACL 的越界写入拒绝已实测；
 - `gitbash` 描述明确区分 Git Bash 与 Linux bash；
 - `pwsh` 描述/段的改写是纯函数，不修改原对象。
+
+`native/` 下是 Windows ACL 沙箱需要的 MSYS token guard，源码和二进制来自 MIT 项目 [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash)；相关版权声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 
 ## 许可证与来源
 
 本项目以 MIT 发布。
 
-工具结构参考了 DSH 官方 `@deepseek-ai/dsh-tool-bash` / `dsh-tool-pwsh` 的公开契约，以及社区 MIT 项目 [`dsh-win-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash) 的 `gitbash` 工具实现思路。相关版权声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+工具结构参考了 DSH 官方 `@deepseek-ai/dsh-tool-bash` / `dsh-tool-pwsh` 的公开契约，以及社区 MIT 项目 [`dsh-win-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash) 的 `gitbash` 工具实现思路。Windows ACL 下的 MSYS token guard 来自 MIT 项目 [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash)。相关版权声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
