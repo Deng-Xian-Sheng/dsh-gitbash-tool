@@ -9,6 +9,7 @@
 # Optional row config (raw, not schema-validated):
 #   bashPath: 'D:\Tools\Git\bin\bash.exe'
 #   enableRunInBackground: true
+#   promoteOnTimeout: true
 #   demotePwsh: true
 - insert:
     - id: gitbash-tool

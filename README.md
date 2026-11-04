@@ -4,10 +4,29 @@
 
 这个插件只做两件事：
 
-1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` / `pwsh` 工具看齐（前台、后台任务、超时、输出截断/落盘、沙箱策略、终端卡片）；
+1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` 工具看齐（前台 job、超时升格、后台任务、`promoted` 输出、输出截断/落盘、沙箱策略、终端卡片）；
 2. 通过公开的 `system-prompt/assemble` 瀑布，把官方 `pwsh` 工具的描述和 `tool:pwsh` 提示词段改写成“仅在 Git Bash 做不了的 Windows 原生操作时使用”，避免模型在 Windows 上默认写 PowerShell 语法。`pwsh` 工具本身仍然保留可用。
 
 它不替换 DSH 的 `ctx.shell` 执行器，不修改安装目录，不依赖 MCP，也不接管侧栏终端。
+
+## 与官方 bash 工具的对齐
+
+exe 版 DSH 的工具源码打包在 `resources/app.asar` 里，开发时直接读取了：
+
+```text
+app.asar/dsh/node_modules/@deepseek-ai/dsh-tool-bash/lib/index.js
+```
+
+`gitbash` 的执行层与官方 bash 工具对齐：
+
+- 前台命令在 job registry 可用时先注册为 job，再等待结果；
+- `promoteOnTimeout` 默认开启：等待超时不会杀进程，而是返回 `kind: "promoted"` 和 job id，进程继续在后台运行；
+- 输出联合类型包含 `background` / `promoted` / `foreground`，`presentResult` 对 promoted 使用 generic 卡片；
+- 后台 job 的 output ring、`job_output` 续读、`job_kill`、`stopped` 标记按官方 bash 的语义处理；
+- 终端卡片、退出码标记、stderr 段、超时/信号标记保持一致；
+- 系统提示词段的位置使用 `TOOL_BASH` 的顺序，而不是 pwsh 的顺序。
+
+差异只在执行器：官方 bash 通过 `ctx.shell`，本工具直接消费 `ctx.subprocess` + `ctx.sandbox`，因为 Windows 上的 `ctx.shell` 被官方 PowerShell 执行器占用，而本插件不替换它。工具描述、路径方言和提示词是 Git Bash 专用，不是 PowerShell 专用。
 
 ## 为什么不是一个“切换默认 shell”的插件
 
@@ -80,6 +99,7 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
   config:
     bashPath: 'D:\Tools\Git\bin\bash.exe'
     enableRunInBackground: true
+    promoteOnTimeout: true
     demotePwsh: true
 ```
 
@@ -87,6 +107,7 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 | --- | --- | --- |
 | `bashPath` | 空 | 显式指定 `bash.exe`；非空时优先且不会回退到自动探测 |
 | `enableRunInBackground` | `true` | 是否暴露/允许 `run_in_background` |
+| `promoteOnTimeout` | `true` | 前台命令超时后升格为后台 job，而不是直接杀进程；与官方 bash 工具一致 |
 | `demotePwsh` | `true` | 是否改写 `pwsh` 工具描述和 `tool:pwsh` 提示词段 |
 
 环境变量：
@@ -102,11 +123,11 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 | --- | --- |
 | `command` | Git Bash 命令（`bash.exe -c`） |
 | `description` | 一句话用途，显示在 UI |
-| `timeoutMs` | 超时，默认 120s，上限 600s；到期杀进程 |
+| `timeoutMs` | 超时，默认 120s，上限 600s；到期默认升格为后台 job（与官方 bash 一致），`promoteOnTimeout: false` 时杀进程 |
 | `workdir` | 工作目录；支持 `C:\...` 和 `/c/...`，相对路径按会话工作区解析 |
 | `run_in_background` | 立即返回 job id，用 `job_output` / `job_kill` 管理 |
 
-输出与官方 bash/pwsh 工具一致：
+输出与官方 bash 工具一致：
 
 - `stdout` / `stderr`，超长时截断到尾部并给出完整输出文件路径；
 - `[exit code: N]`、`[killed by signal: X]`、`[timed out after Nms]` 标记；
