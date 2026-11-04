@@ -1,0 +1,15 @@
+# dsh-gitbash-tool — bundle activation row.
+#
+# Installed as a profile bundle, this row mounts the Host plugin that:
+#   1. registers the model-facing `gitbash` tool on Windows;
+#   2. adds Git Bash routing guidance to the system prompt;
+#   3. rewrites the PowerShell tool description/section so it stops reading
+#      like the default shell on Windows (the plugin can be opted out).
+#
+# Optional row config (raw, not schema-validated):
+#   bashPath: 'D:\Tools\Git\bin\bash.exe'
+#   enableRunInBackground: true
+#   demotePwsh: true
+- insert:
+    - id: gitbash-tool
+      name: 'dsh-gitbash-tool'

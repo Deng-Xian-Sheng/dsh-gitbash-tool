@@ -1,0 +1,9 @@
+# Dependencies and local tooling
+node_modules/
+.tools/
+*.log
+
+# Test / editor scratch
+coverage/
+.DS_Store
+Thumbs.db

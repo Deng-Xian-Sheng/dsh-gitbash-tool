@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git Bash Tool",
+    "description": "Adds a model-facing gitbash tool that runs Git for Windows Bash and demotes PowerShell-first prompt guidance."
+  }
+}
