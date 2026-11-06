@@ -141,6 +141,8 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 | `timeoutMs` | 超时，默认 120s，上限 600s；到期默认升格为后台 job（与官方 bash 一致），`promoteOnTimeout: false` 时杀进程 |
 | `workdir` | 工作目录；支持 `C:\...` 和 `/c/...`，相对路径按会话工作区解析 |
 | `run_in_background` | 立即返回 job id，用 `job_output` / `job_kill` 管理 |
+| `sandbox_permissions` | 沙箱拒绝后，请求更宽的一次性权限；与 `justification` 成对使用 |
+| `justification` | 一句话说明为什么这次命令需要更宽权限；会显示在审批弹窗里 |
 
 输出与官方 bash 工具一致：
 
@@ -174,6 +176,33 @@ DSH 在 Windows 上的默认权限不是“无沙箱”：
 
 已验证：用临时 headless profile 设置 `DSH_PERMISSION_MODE=workspace-write` 启动，guard 路径下 Git Bash 正常启动，工作区外写入被拒绝（`Permission denied`，`write_exit=1`），没有回退到 `pwsh`。当前 `desktop` 会话是 `danger-full-access`，所以当前会话的直接调用不会走 guard；默认 `workspace-write` 的验证来自上述独立 profile。
 
+### 沙箱审批升级（与官方 bash 一致）
+
+`gitbash` 现在支持官方 bash 同款的：
+
+```jsonc
+{
+  "sandbox_permissions": "danger-full-access",
+  "justification": "需要把结果写到工作区外"
+}
+```
+
+触发方式：
+
+1. 在默认 `workspace-write` 或 `read-only` 会话里，让 `gitbash` 执行一个会被沙箱拒绝的操作，例如写工作区外文件；
+2. 工具返回拒绝后，模型可以对**同一条命令**重试一次，并带上 `sandbox_permissions`（取比当前模式更宽的 `workspace-write` 或 `danger-full-access`）和 `justification`；
+3. 如果当前 approval policy 是 `ask`（默认非 full-access 模式），DSH 会弹出审批；用户批准后，这一条命令以批准的模式执行一次；拒绝则保持拒绝；
+4. 如果 approval policy 是 `never`（例如 full-access 模式），不会弹窗；请求相同模式会直接执行，请求更宽/更窄会按规则失败。
+
+注意：
+
+- 升级只作用于**当前这一次调用**，不会把整个会话切到 full access；
+- 不是“沙箱失败自动重试”；必须显式带 `sandbox_permissions` 才会走审批；
+- 不能 speculative 升级；没有先发生拒绝就请求更宽权限，工具仍会要求审批，但这不符合官方 bash 的使用约定；
+- 如果 native guard 返回 `SANDBOX_UNAVAILABLE`，那是 guard/运行器问题，不是普通的文件拒绝；不要把它当作可重试的沙箱拒绝。
+
+可以在“仅可查看”会话里这样测：先让模型写一个工作区外文件（应被拒绝），然后对它说“用 `sandbox_permissions: danger-full-access` 和 justification 重试一次”，审批框应该出现。
+
 ## 提示词纠正
 
 Windows 预设里，模型看到的主要 PowerShell 文本来自两处：
@@ -202,6 +231,7 @@ node --test
 - PortableGit 解压、SHA-256 校验、`bash.exe` 实测；
 - 自动下载链路已实测：57.3 MiB、SHA-256 校验通过、解压后 `uname -s` 为 `MINGW64_NT-*`；
 - native guard 文件存在性与 DACL 归一化；`workspace-write` 下 guard + ACL 的越界写入拒绝已实测；
+- `sandbox_permissions` 严格加宽阶梯、参数配对、审批通过/拒绝/取消/不可用；
 - `gitbash` 描述明确区分 Git Bash 与 Linux bash；
 - `pwsh` 描述/段的改写是纯函数，不修改原对象。
 
