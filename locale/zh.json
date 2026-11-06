@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Git Bash 工具",
-    "description": "增加模型可调用的 gitbash 工具，用 Git for Windows Bash 执行命令，并纠正 PowerShell 优先的提示词。"
+    "description": "增加模型可调用的 gitbash 工具，用 Git for Windows Bash 执行命令；缺少 Git 时自动安装，并把 PowerShell 路由为 Windows 原生操作用，同时保留语法参考。"
   }
 }

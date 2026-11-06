@@ -1,12 +1,16 @@
 # dsh-gitbash-tool
 
-给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）在 Windows 上增加一个模型可调用的 **Git Bash** 工具，并纠正 Windows 预设里“PowerShell 是默认 shell”的提示词偏见。
+给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）在 Windows 上增加一个模型可调用的 **Git Bash** 工具，并在不删除 PowerShell 语法参考的前提下，把 Windows 预设里“PowerShell 是默认 shell”的叙述改成 Git Bash 优先的路由。
 
-这个插件只做三件事：
+仓库：<https://github.com/Deng-Xian-Sheng/dsh-gitbash-tool>
 
-1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` 工具看齐（前台 job、超时升格、后台任务、`promoted` 输出、输出截断/落盘、沙箱策略、终端卡片）；
+这个插件主要做这些事：
+
+1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` 工具看齐（前台 job、超时升格、后台任务、`promoted` 输出、输出截断/落盘、终端卡片）；
 2. 没有 Git for Windows 时，自动下载并安装一个私有 PortableGit（SHA-256 校验，普通用户权限即可）；
-3. 通过公开的 `system-prompt/assemble` 瀑布，在官方 `pwsh` 工具描述和 `tool:pwsh` 提示词段前加上“PowerShell 不是默认 shell，普通 shell 工作优先 `gitbash`”的路由说明；**原有 PowerShell 语法和示例完整保留**，供 Git Bash 做不了的 Windows 原生操作使用。`pwsh` 工具本身仍然保留可用。
+3. 在默认的 `workspace-write` / `read-only` 下通过 native MSYS token guard 启动 Git Bash，保留 ACL 写入边界；
+4. 支持 `sandbox_permissions` + `justification` 的一次性沙箱升级审批；
+5. 通过公开的 `system-prompt/assemble` 瀑布，在官方 `pwsh` 工具描述和 `tool:pwsh` 提示词段前加上“PowerShell 不是默认 shell，普通 shell 工作优先 `gitbash`”的路由说明；**原有 PowerShell 语法和示例完整保留**，供 Git Bash 做不了的 Windows 原生操作使用。
 
 它不替换 DSH 的 `ctx.shell` 执行器，不修改安装目录，不依赖 MCP，也不接管侧栏终端。
 
@@ -20,7 +24,7 @@
 dsh plugin --profile desktop add C:\path\to\dsh-gitbash-tool
 ```
 
-### 从 GitHub 安装（发布后）
+### 从 GitHub 安装
 
 ```powershell
 dsh plugin --profile desktop add github:Deng-Xian-Sheng/dsh-gitbash-tool
@@ -79,12 +83,12 @@ app.asar/dsh/node_modules/@deepseek-ai/dsh-tool-bash/lib/index.js
 
 DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启用。单纯换掉 `ctx.shell` 执行器会影响所有 shell 消费方，也容易和沙箱、持久终端、其他插件互相覆盖。
 
-本插件选择“增加一个工具 + 纠正提示词”的最小路径：
+本插件选择“增加一个工具 + 路由提示词”的最小路径：
 
 - 官方 PowerShell 执行器保持原位，`pwsh` 仍然是真的 PowerShell；
 - `gitbash` 直接通过 `ctx.subprocess` 启动 Git for Windows 的 `bash.exe`；
 - Git Bash 的路径解析、沙箱和后台任务都在工具内部完成；
-- 提示词纠正只作用于模型可见的组装结果，不改任何官方源码。
+- 提示词路由只作用于模型可见的组装结果，不改任何官方源码。
 
 ## 先搜索过的现成插件
 
@@ -92,12 +96,12 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 
 | 插件 | 做法 | 与本项目的差异 |
 | --- | --- | --- |
-| [`dsh-gitbash-shell`](https://github.com/KannaKuron/dsh-gitbash-shell) | 私有 Git Bash 执行器 + 自有 bash 工具，默认隐藏 pwsh，另带 MSYS 路径方言、四个 preset 变体、侧栏终端接管 | 核心思路最接近，但范围大得多；本项目只保留工具和提示词纠正，并让 `pwsh` 继续可用 |
-| [`dsh-win-gitbash` / `dsh-tool-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash) | 注册 `gitbash` 工具，直接消费 `ctx.subprocess`，支持后台和沙箱升级 | 单工具形态很接近，但没有改写 PowerShell 提示词；它的启动期解析也要求 Git 已安装 |
+| [`dsh-gitbash-shell`](https://github.com/KannaKuron/dsh-gitbash-shell) | 私有 Git Bash 执行器 + 自有 bash 工具，默认隐藏 pwsh，另带 MSYS 路径方言、四个 preset 变体、侧栏终端接管 | 核心思路最接近，但范围大得多；本项目只保留工具、自动安装、native guard 和提示词路由，并让 `pwsh` 继续可用 |
+| [`dsh-win-gitbash` / `dsh-tool-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash) | 注册 `gitbash` 工具，直接消费 `ctx.subprocess`，支持后台和沙箱升级 | 单工具形态很接近，但没有给 PowerShell 提示词加路由；它的启动期解析也要求 Git 已安装 |
 | [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash) | 替换默认 shell 执行器，让官方 bash 工具跑 Git Bash，带 native guard | 不是“新增一个 git bash 工具”，而是替换执行器 |
 | [`dsh-git-bash`](https://github.com/VviLliAm-qwq/dsh-git-bash) | 让 `bash` 在 Host 进程里解析到 Git Bash，复用官方 bash 栈 | 同样是复用官方 bash 工具，不是独立的 Git Bash 工具 |
 
-如果你需要路径方言、preset 变体或侧栏终端，直接使用 `dsh-gitbash-shell` 更合适；如果你只需要一个 Git Bash 工具并纠正 PowerShell 提示词，本项目就是为此准备的。
+如果你需要路径方言、preset 变体或侧栏终端，直接使用 `dsh-gitbash-shell` 更合适；如果你只需要一个 Git Bash 工具、自动安装和 PowerShell 路由，本项目就是为此准备的。
 
 ## 配置
 
@@ -124,13 +128,13 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 | `gitSha256` | 固定 SHA-256 | 覆盖下载源时必须同时覆盖校验值 |
 | `enableRunInBackground` | `true` | 是否暴露/允许 `run_in_background` |
 | `promoteOnTimeout` | `true` | 前台命令超时后升格为后台 job，而不是直接杀进程；与官方 bash 工具一致 |
-| `demotePwsh` | `true` | 是否给 `pwsh` 工具描述和 `tool:pwsh` 段加 Git Bash 路由说明；原有 PowerShell 语法和示例保留 |
+| `demotePwsh` | `true` | 历史字段名，保留兼容；实际行为是给 `pwsh` 工具描述和 `tool:pwsh` 段加 Git Bash 路由说明，原有 PowerShell 语法和示例保留 |
 
 环境变量：
 
 - `DSH_GIT_BASH_PATH`：无 GUI 配置时指定 Git Bash 路径；显式路径失败不会触发自动安装；
 - `DSH_GITBASH_AUTO_INSTALL=0`：关闭自动安装 Git；
-- `DSH_GITBASH_DEMOTE_PWSH=0`：强制保留官方 PowerShell 提示词（等价于 `demotePwsh: false`）。
+- `DSH_GITBASH_DEMOTE_PWSH=0`：历史变量名，保留兼容；强制保留官方 PowerShell 提示词（等价于 `demotePwsh: false`）。
 
 ## 工具行为
 
@@ -275,7 +279,7 @@ node --test
 - native guard 文件存在性与 DACL 归一化；`workspace-write` 下 guard + ACL 的越界写入拒绝已实测；
 - `sandbox_permissions` 严格加宽阶梯、参数配对、审批通过/拒绝/取消/不可用；
 - `gitbash` 描述明确区分 Git Bash 与 Linux bash；
-- `pwsh` 描述/段的改写是纯函数，不修改原对象。
+- `pwsh` 描述/段的路由前缀是纯函数，保留原语法且不修改原对象。
 
 `native/` 下是 Windows ACL 沙箱需要的 MSYS token guard，源码和二进制来自 MIT 项目 [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash)；相关版权声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
 

@@ -2,9 +2,11 @@
 #
 # Installed as a profile bundle, this row mounts the Host plugin that:
 #   1. registers the model-facing `gitbash` tool on Windows;
-#   2. adds Git Bash routing guidance to the system prompt;
-#   3. rewrites the PowerShell tool description/section so it stops reading
-#      like the default shell on Windows (the plugin can be opted out).
+#   2. auto-provisions PortableGit when Git for Windows is missing;
+#   3. runs confined Git Bash through the bundled MSYS token guard;
+#   4. adds Git Bash routing guidance to the system prompt;
+#   5. prepends routing to the PowerShell tool description/section while
+#      preserving the original syntax and examples (opt-out via demotePwsh).
 #
 # Optional row config (raw, not schema-validated):
 #   bashPath: 'D:\Tools\Git\bin\bash.exe'
@@ -12,7 +14,7 @@
 #   gitInstallDir: 'C:\Users\me\AppData\Local\dsh-gitbash-tool\git'
 #   enableRunInBackground: true
 #   promoteOnTimeout: true
-#   demotePwsh: true
+#   demotePwsh: true   # legacy name; behavior is routing, not removal
 - insert:
     - id: gitbash-tool
       name: 'dsh-gitbash-tool'
