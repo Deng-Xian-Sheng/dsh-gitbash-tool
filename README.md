@@ -94,12 +94,14 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 
 开发前检查过社区已有实现。它们和本项目的定位不同：
 
-| 插件 | 做法 | 与本项目的差异 |
+| 项目 | 做法 | 与本项目的差异 |
 | --- | --- | --- |
 | [`dsh-gitbash-shell`](https://github.com/KannaKuron/dsh-gitbash-shell) | 私有 Git Bash 执行器 + 自有 bash 工具，默认隐藏 pwsh，另带 MSYS 路径方言、四个 preset 变体、侧栏终端接管 | 核心思路最接近，但范围大得多；本项目只保留工具、自动安装、native guard 和提示词路由，并让 `pwsh` 继续可用 |
-| [`dsh-win-gitbash` / `dsh-tool-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash) | 注册 `gitbash` 工具，直接消费 `ctx.subprocess`，支持后台和沙箱升级 | 单工具形态很接近，但没有给 PowerShell 提示词加路由；它的启动期解析也要求 Git 已安装 |
-| [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash) | 替换默认 shell 执行器，让官方 bash 工具跑 Git Bash，带 native guard | 不是“新增一个 git bash 工具”，而是替换执行器 |
-| [`dsh-git-bash`](https://github.com/VviLliAm-qwq/dsh-git-bash) | 让 `bash` 在 Host 进程里解析到 Git Bash，复用官方 bash 栈 | 同样是复用官方 bash 工具，不是独立的 Git Bash 工具 |
+| [`dsh-win-gitbash`](https://github.com/buhuikongpan/dsh-win-gitbash)（仓库内 package 名 `dsh-tool-gitbash`，未发布 npm） | 注册 `gitbash` 工具，直接消费 `ctx.subprocess`，支持后台和沙箱升级 | 单工具形态很接近，但没有给 PowerShell 提示词加路由；它的启动期解析也要求 Git 已安装 |
+| [`dsh-plugin-git-bash`](https://github.com/inmny/dsh-git-bash)（仓库名 `dsh-git-bash`） | 替换默认 shell 执行器，让官方 bash 工具跑 Git Bash，带 native guard | 不是“新增一个 git bash 工具”，而是替换执行器 |
+| [`dsh-git-bash`](https://www.npmjs.com/package/dsh-git-bash)（GitHub 仓库已 404，npm 包仍在） | 让 `bash` 在 Host 进程里解析到 Git Bash，复用官方 bash 栈 | 同样是复用官方 bash 工具，不是独立的 Git Bash 工具 |
+
+表中链接优先指向项目主页；GitHub 仓库名和 npm package 名可能不同，括号里已经注明。`dsh-git-bash` 的原 GitHub 仓库已经 404，但 npm 包 `dsh-git-bash@0.1.3` 仍可安装。
 
 如果你需要路径方言、preset 变体或侧栏终端，直接使用 `dsh-gitbash-shell` 更合适；如果你只需要一个 Git Bash 工具、自动安装和 PowerShell 路由，本项目就是为此准备的。
 
