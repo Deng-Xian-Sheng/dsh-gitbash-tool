@@ -10,7 +10,7 @@ import {
 function originalPwshTool() {
   return {
     name: 'pwsh',
-    description: 'Execute a PowerShell command and use native Windows paths.',
+    description: 'Execute a PowerShell command. Paths use C:\\... and $env:NAME. Examples: Get-Process.',
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -38,17 +38,18 @@ test('gitbash description can omit background execution', () => {
   assert.match(text, /Background execution is not available/)
 })
 
-test('pwsh is demoted and its examples are removed without mutating the input', () => {
+test('pwsh is routed with all syntax and examples preserved', () => {
   const original = originalPwshTool()
   const demoted = demotePwshTool(original)
   assert.notEqual(demoted, original)
-  assert.equal(original.description, 'Execute a PowerShell command and use native Windows paths.')
-  assert.match(demoted.description, /use the `gitbash` tool/)
-  assert.match(demoted.description, /Windows-native/)
-  assert.equal(demoted.parameters.properties.command.description, 'The PowerShell command to execute. Use only for Windows-native operations that Git Bash cannot perform.')
-  assert.doesNotMatch(demoted.parameters.properties.description.description, /Get-Process/)
-  assert.deepEqual(demoted.parameters.required, original.parameters.required)
+  assert.equal(original.description, 'Execute a PowerShell command. Paths use C:\\... and $env:NAME. Examples: Get-Process.')
+  assert.match(demoted.description, /PowerShell is not the default shell/)
+  assert.match(demoted.description, /use this PowerShell tool only for Windows-native operations/)
+  assert.match(demoted.description, /Get-Process/)
+  assert.match(demoted.description, /\$env:NAME/)
+  assert.equal(demoted.parameters, original.parameters)
   assert.equal(original.parameters.properties.command.description, 'The PowerShell command to execute.')
+  assert.equal(demotePwshTool(demoted), demoted)
 })
 
 test('non-pwsh tools and sections pass through unchanged', () => {
@@ -58,12 +59,16 @@ test('non-pwsh tools and sections pass through unchanged', () => {
   assert.equal(demotePwshSection(section), section)
 })
 
-test('pwsh section is rewritten to prefer gitbash', () => {
-  const section = { name: 'tool:pwsh', order: 1010, text: 'old' }
+test('pwsh section is routed while preserving its original result guidance', () => {
+  const originalText = 'Non-zero exits are reported as `[exit code: N]` markers. On Windows a killed process settles as `[exit code: 1]`.'
+  const section = { name: 'tool:pwsh', order: 1010, text: originalText }
   const demoted = demotePwshSection(section)
   assert.notEqual(demoted, section)
-  assert.equal(section.text, 'old')
-  assert.match(demoted.text, /prefer `gitbash`/)
+  assert.equal(section.text, originalText)
+  assert.match(demoted.text, /Prefer `gitbash` for shell work/)
+  assert.match(demoted.text, /Non-zero exits are reported/)
+  assert.match(demoted.text, /On Windows a killed process settles/)
+  assert.equal(demotePwshSection(demoted), demoted)
 })
 
 test('routing section names Git Bash, pwsh, and the exit marker', () => {

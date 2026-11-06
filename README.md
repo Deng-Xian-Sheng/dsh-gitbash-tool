@@ -6,9 +6,55 @@
 
 1. 注册 `gitbash` 工具：用 Git for Windows 的 `bash.exe -c` 执行命令，行为向 DSH 原生 `bash` 工具看齐（前台 job、超时升格、后台任务、`promoted` 输出、输出截断/落盘、沙箱策略、终端卡片）；
 2. 没有 Git for Windows 时，自动下载并安装一个私有 PortableGit（SHA-256 校验，普通用户权限即可）；
-3. 通过公开的 `system-prompt/assemble` 瀑布，把官方 `pwsh` 工具的描述和 `tool:pwsh` 提示词段改写成“仅在 Git Bash 做不了的 Windows 原生操作时使用”，避免模型在 Windows 上默认写 PowerShell 语法。`pwsh` 工具本身仍然保留可用。
+3. 通过公开的 `system-prompt/assemble` 瀑布，在官方 `pwsh` 工具描述和 `tool:pwsh` 提示词段前加上“PowerShell 不是默认 shell，普通 shell 工作优先 `gitbash`”的路由说明；**原有 PowerShell 语法和示例完整保留**，供 Git Bash 做不了的 Windows 原生操作使用。`pwsh` 工具本身仍然保留可用。
 
 它不替换 DSH 的 `ctx.shell` 执行器，不修改安装目录，不依赖 MCP，也不接管侧栏终端。
+
+## 安装
+
+要求：Windows x64、DSH `0.2.1-rc.1` 及以上（`< 0.3.0`）。Git for Windows 可选；缺失时插件会在首次 `gitbash` 调用时自动安装私有 PortableGit（详见下一节）。
+
+### 从本地目录安装（开发/当前仓库）
+
+```powershell
+dsh plugin --profile desktop add C:\path\to\dsh-gitbash-tool
+```
+
+### 从 GitHub 安装（发布后）
+
+```powershell
+dsh plugin --profile desktop add github:Deng-Xian-Sheng/dsh-gitbash-tool
+```
+
+`dsh plugin add` 会读取 `package.json` 的 `dsh.bundle.patch`，把本插件的 `cordis.patch.yml` 插入 profile bundle 栈。
+
+安装后重启该 profile 的 DSH，或新建会话。插件只作为 profile bundle 层安装，不修改 DSH 安装目录。
+
+## 前置条件
+
+- Windows x64
+- DSH `0.2.1-rc.1` 及以上（`< 0.3.0`）
+- Git for Windows 可选：**没有安装时插件会自动装一个私有 PortableGit**
+
+插件在**每次调用时**懒解析 Git Bash。找不到 Git 时，默认会自动下载并解压一个固定版本的 Git for Windows PortableGit 到：
+
+```text
+%LOCALAPPDATA%\dsh-gitbash-tool\git\PortableGit-2.56.0.4
+```
+
+下载地址固定为 Git for Windows 官方 release，SHA-256 校验通过后才解压；不需要管理员权限。首次调用会多等一段时间（约 60 MB 下载）。自动安装由 Host 插件执行，属于“安装依赖”，不是会话里的 `gitbash` 命令在沙箱内执行；因此只接受固定 HTTPS 源和固定 SHA-256，解压只写用户本地安装目录。如果用户显式配置了 `bashPath` 或 `DSH_GIT_BASH_PATH`，插件不会用自动安装覆盖它，而是直接报错。
+
+自动探测顺序：
+
+1. 插件行 `config.bashPath`
+2. 环境变量 `DSH_GIT_BASH_PATH`
+3. 自动安装目录的 `current.txt` 标记
+4. 标准安装位置（`Program Files\Git`、`Program Files (x86)\Git`、`%LOCALAPPDATA%\Programs\Git`、Scoop）
+5. `PATH` 上的 `bash.exe`（跳过 `System32` / WindowsApps 的 WSL 启动器）
+6. `PATH` 上的 `git.exe --exec-path` 反推 Git 根目录
+7. 注册表 `HKLM/HKCU\SOFTWARE\GitForWindows` 的 `InstallPath`
+
+候选路径会实际运行 `bash.exe -c "uname -s"`，只接受 `MINGW*` / `MSYS*`。WSL、WindowsApps 别名、Cygwin/MSYS2 的非 Git Bash 都会被拒绝。
 
 ## 与官方 bash 工具的对齐
 
@@ -53,50 +99,6 @@ DSH 在 Windows 上的标准预设把 `tool-bash` 禁用、把 `tool-pwsh` 启�
 
 如果你需要路径方言、preset 变体或侧栏终端，直接使用 `dsh-gitbash-shell` 更合适；如果你只需要一个 Git Bash 工具并纠正 PowerShell 提示词，本项目就是为此准备的。
 
-## 前置条件
-
-- Windows x64
-- DSH `0.2.1-rc.1` 及以上（`< 0.3.0`）
-- Git for Windows 可选：**没有安装时插件会自动装一个私有 PortableGit**
-
-插件在**每次调用时**懒解析 Git Bash。找不到 Git 时，默认会自动下载并解压一个固定版本的 Git for Windows PortableGit 到：
-
-```text
-%LOCALAPPDATA%\dsh-gitbash-tool\git\PortableGit-2.56.0.4
-```
-
-下载地址固定为 Git for Windows 官方 release，SHA-256 校验通过后才解压；不需要管理员权限。首次调用会多等一段时间（约 60 MB 下载）。自动安装由 Host 插件执行，属于“安装依赖”，不是会话里的 `gitbash` 命令在沙箱内执行；因此只接受固定 HTTPS 源和固定 SHA-256，解压只写用户本地安装目录。如果用户显式配置了 `bashPath` 或 `DSH_GIT_BASH_PATH`，插件不会用自动安装覆盖它，而是直接报错。
-
-自动探测顺序：
-
-1. 插件行 `config.bashPath`
-2. 环境变量 `DSH_GIT_BASH_PATH`
-3. 自动安装目录的 `current.txt` 标记
-4. 标准安装位置（`Program Files\Git`、`Program Files (x86)\Git`、`%LOCALAPPDATA%\Programs\Git`、Scoop）
-5. `PATH` 上的 `bash.exe`（跳过 `System32` / WindowsApps 的 WSL 启动器）
-6. `PATH` 上的 `git.exe --exec-path` 反推 Git 根目录
-7. 注册表 `HKLM/HKCU\SOFTWARE\GitForWindows` 的 `InstallPath`
-
-候选路径会实际运行 `bash.exe -c "uname -s"`，只接受 `MINGW*` / `MSYS*`。WSL、WindowsApps 别名、Cygwin/MSYS2 的非 Git Bash 都会被拒绝。
-
-## 安装
-
-### 从本地目录安装（开发/当前仓库）
-
-```powershell
-dsh plugin --profile desktop add C:\path\to\dsh-gitbash-tool
-```
-
-安装后重启该 profile 的 DSH，或新建会话。插件只作为 profile bundle 层安装，不修改 DSH 安装目录。
-
-### 从 GitHub 安装（发布后）
-
-```powershell
-dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
-```
-
-`dsh plugin add` 会读取 `package.json` 的 `dsh.bundle.patch`，把本插件的 `cordis.patch.yml` 插入 profile bundle 栈。
-
 ## 配置
 
 插件行 id 是 `gitbash-tool`。可以在 profile 的 `cordis.patch.yml` 里覆盖：
@@ -122,7 +124,7 @@ dsh plugin --profile desktop add github:<owner>/dsh-gitbash-tool
 | `gitSha256` | 固定 SHA-256 | 覆盖下载源时必须同时覆盖校验值 |
 | `enableRunInBackground` | `true` | 是否暴露/允许 `run_in_background` |
 | `promoteOnTimeout` | `true` | 前台命令超时后升格为后台 job，而不是直接杀进程；与官方 bash 工具一致 |
-| `demotePwsh` | `true` | 是否改写 `pwsh` 工具描述和 `tool:pwsh` 提示词段 |
+| `demotePwsh` | `true` | 是否给 `pwsh` 工具描述和 `tool:pwsh` 段加 Git Bash 路由说明；原有 PowerShell 语法和示例保留 |
 
 环境变量：
 
@@ -240,21 +242,24 @@ icacls "C:\path\to\Git\bin\bash.exe"
 
 可以在“仅可查看”会话里这样测：先让模型写一个工作区外文件（应被拒绝），然后对它说“用 `sandbox_permissions: danger-full-access` 和 justification 重试一次”，审批框应该出现。
 
-## 提示词纠正
+## 提示词路由
 
 Windows 预设里，模型看到的主要 PowerShell 文本来自两处：
 
-1. `pwsh` 工具的 schema description（其中包含 `$env:NAME`、PowerShell sandbox 细节和 `Get-Process` 示例）；
+1. `pwsh` 工具的 schema description（包含 `$env:NAME`、PowerShell sandbox 细节和 `Get-Process` 等语法示例）；
 2. `dsh-tool-pwsh` 注册的 `tool:pwsh` 系统提示词段。
 
-插件在 `system-prompt/assemble` 瀑布的 `next()` 之后：
+本插件只做“路由”，不删除语法参考。在 `system-prompt/assemble` 瀑布的 `next()` 之后：
 
-- 把 `pwsh` 工具的 description 改成“仅用于 Git Bash 做不了的 Windows 原生操作”，并移除 `Get-Process` 等默认示例；
-- 把 `tool:pwsh` 段改成“PowerShell 仅用于 Windows 原生操作，shell 工作优先 `gitbash`”；
+- 在 `pwsh` 工具 description 前面加上“PowerShell 不是默认 shell；普通 shell 工作用 `gitbash`，只有 Git Bash 做不了的 Windows 原生操作才用 PowerShell”；
+- 在 `tool:pwsh` 段前面加上同样的路由说明；
+- **完整保留**原有的 PowerShell 语法、`$env:NAME`、`Get-Process` 示例和 Windows 结果说明；
 - 新增 `tool:gitbash` 段，说明 Git for Windows Bash（不是 Linux bash）的路由规则；
 - 不删除、不隐藏 `pwsh` 工具，`pwsh` 仍可正常工作。
 
-如果其他插件也修改 `system-prompt/assemble`，本插件的改写只影响 `pwsh` 工具/段，不会改动其他工具或用户 AGENTS.md。
+这样在 Git Bash 做不了、必须用 PowerShell 时，模型仍然有语法参考；同时不会被“Windows 默认用 PowerShell”这种叙述带偏。
+
+如果其他插件也修改 `system-prompt/assemble`，本插件只影响 `pwsh` 工具/段，不会改动其他工具或用户 AGENTS.md。
 
 ## 开发
 
