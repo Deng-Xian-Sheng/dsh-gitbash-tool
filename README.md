@@ -10,7 +10,7 @@
 2. 没有 Git for Windows 时，自动下载并安装一个私有 PortableGit（SHA-256 校验，普通用户权限即可）；
 3. 在默认的 `workspace-write` / `read-only` 下通过 native MSYS token guard 启动 Git Bash，保留 ACL 写入边界；
 4. 支持 `sandbox_permissions` + `justification` 的一次性沙箱升级审批；
-5. 通过公开的 `system-prompt/assemble` 瀑布，在官方 `pwsh` 工具描述和 `tool:pwsh` 提示词段前加上“PowerShell 不是默认 shell，普通 shell 工作优先 `gitbash`”的路由说明；**原有 PowerShell 语法和示例完整保留**，供 Git Bash 做不了的 Windows 原生操作使用。
+5. 通过公开的 `system-prompt/assemble` 瀑布，在官方 `pwsh` 工具描述和 `tool:pwsh` 提示词段前加上“PowerShell 不是默认 shell，普通 shell 工作优先 `gitbash`”的路由说明；**原有 PowerShell 语法和示例完整保留**，供 Git Bash 做不了的 Windows 原生操作使用。`pwsh` 工具本身仍然保留可用。
 
 它不替换 DSH 的 `ctx.shell` 执行器，不修改安装目录，不依赖 MCP，也不接管侧栏终端。
 
@@ -180,7 +180,7 @@ DSH 在 Windows 上的默认权限不是“无沙箱”：
 
 如果 guard 在你的机器上仍然失败，请把 `SANDBOX_UNAVAILABLE` 的完整错误发回来；不要把它当成普通命令失败重试。
 
-已验证：用临时 headless profile 设置 `DSH_PERMISSION_MODE=workspace-write` 启动，guard 路径下 Git Bash 正常启动，工作区外写入被拒绝（`Permission denied`，`write_exit=1`），没有回退到 `pwsh`。当前 `desktop` 会话是 `danger-full-access`，所以当前会话的直接调用不会走 guard；默认 `workspace-write` 的验证来自上述独立 profile。
+已验证：用临时 headless profile 设置 `DSH_PERMISSION_MODE=workspace-write` 启动，guard 路径下 Git Bash 正常启动，工作区外写入被拒绝（`Permission denied`，`write_exit=1`），没有回退到 `pwsh`。全权限会话的直接调用不会走 guard，因此上述验证使用独立的 workspace-write profile。
 
 #### 重要坑：不要把 PortableGit 从工作区移到 Program Files
 
