@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   candidateBashPaths,
   describeGitBashFailure,
+  hasLowIntegrityBash,
   resolveGitBash,
   verifyGitBash,
 } from '../lib/git-bash.js'
@@ -21,6 +22,12 @@ test('an explicit configured path wins and is validated', { skip: process.platfo
   assert.equal(result.ok, true)
   assert.equal(result.source, 'config')
   assert.equal(result.path, first.path)
+})
+
+test('the resolved Git Bash has a normal integrity label', { skip: process.platform !== 'win32' }, () => {
+  const result = resolveGitBash()
+  assert.equal(result.ok, true, JSON.stringify(result, null, 2))
+  assert.equal(hasLowIntegrityBash(result.path), false)
 })
 
 test('a missing configured path fails closed instead of falling back', () => {

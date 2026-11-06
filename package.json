@@ -1,6 +1,6 @@
 {
   "name": "dsh-gitbash-tool",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model-facing Git Bash tool for DeepSeek Harness on Windows: auto-provisions Git for Windows when missing, runs under the default ACL sandbox through a native MSYS guard, and demotes PowerShell-first prompt guidance.",
   "type": "module",
   "private": false,

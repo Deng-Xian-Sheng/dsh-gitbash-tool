@@ -176,6 +176,43 @@ DSH 在 Windows 上的默认权限不是“无沙箱”：
 
 已验证：用临时 headless profile 设置 `DSH_PERMISSION_MODE=workspace-write` 启动，guard 路径下 Git Bash 正常启动，工作区外写入被拒绝（`Permission denied`，`write_exit=1`），没有回退到 `pwsh`。当前 `desktop` 会话是 `danger-full-access`，所以当前会话的直接调用不会走 guard；默认 `workspace-write` 的验证来自上述独立 profile。
 
+#### 重要坑：不要把 PortableGit 从工作区移到 Program Files
+
+如果 PortableGit 是在 DSH 工作区内解压的，它会继承工作区的 ACL：
+
+```text
+S-1-4-...(OI)(CI)(W,D,DC)
+Mandatory Label\Low Mandatory Level:(OI)(CI)(NW)
+```
+
+把它整个目录移到 `%LOCALAPPDATA%\Programs\Git` 时，文件上的 `Low` 完整性标签也会一起带过去。**Low 标签会限制 `bash.exe` 进程本身**，所以即使会话批准了 `danger-full-access`，甚至直接启动这个 `bash.exe`，它仍然是 Low integrity，写不了 Medium 的 Desktop/Documents，典型表现就是：
+
+```text
+审批 allowed-once
+命令仍然 Permission denied
+没有 [sandbox: ...] 标记
+```
+
+检查：
+
+```powershell
+icacls "C:\path\to\Git\bin\bash.exe"
+```
+
+如果看到 `Mandatory Label\Low Mandatory Level`，就是这个原因。
+
+修复：
+
+1. 删除这个继承 Low 标签的 Git 安装；
+2. 让本插件自动安装到私有目录：
+   ```text
+   %LOCALAPPDATA%\dsh-gitbash-tool\git
+   ```
+   或使用 Git for Windows 官方安装器装到 `C:\Program Files\Git`；
+3. 不要把工作区里解压的 PortableGit 直接移动到 `Program Files` 或 `%LOCALAPPDATA%\Programs`。
+
+插件现在会检查 `bash.exe` 的完整性标签，**拒绝 Low-labeled Git** 并优先使用自己的私有安装；如果检测到 Low 标签且没有其他可用 Git，会自动安装一份干净副本。
+
 ### 沙箱审批升级（与官方 bash 一致）
 
 `gitbash` 现在支持官方 bash 同款的：
